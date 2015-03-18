@@ -6,8 +6,9 @@ outpath = '/Users/kimberly/Documents/lifespan/CD/'; % should end with /
 subjects = 108;
 missing_subjs = [];
 p = 100;    % number of genlouvain optimizations to perform
-t = 3;      % number of slices in multislice (per run)
+t = 3;      % number of slices in multislice (total)
 ts = 316;   % number of time samples in each slice
+run_ts = 316; % number of time samples in each functional run
 tosave = 1;
 remove_miss = 0;
 
@@ -15,13 +16,14 @@ remove_miss = 0;
 goRange = [1.05, 0;
           ];                                    
 
+% ib = list of subjects to include in analysis      
 ib = removeval((1:subjects)',missing_subjs);
 ib = 1;
 disp(ib);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% set number of nodes (brain regions) & timesteps per run
+% set number of nodes (brain regions) & slices per run
     A = csvread([inpath 'ageNN' num2str(ib(1)) '_run' num2str(1) ...
                  '-' num2str(1) '_tw' num2str(ts) '.txt']);
     n = size(A,1);
@@ -30,19 +32,20 @@ disp(ib);
         %missing = find_missing_files('/Users/kimberly/Google Drive/choking/',nregs,ib,nruns);
         oldN = n;
     end
+    TperR = floor(run_ts/ts);
    
     
-for goix = size(goRange,1)
+for goix = size(goRange,1)   % loop over gamma/omega pairs
     gamma = goRange(goix,1);
     omega = goRange(goix,2);
 
-for k=1:numel(ib)
+for k=1:numel(ib)  %loop over subjects
     person = ib(k);
     disp(['SUBJECT ' num2str(person)]);
     disp(['GAMMA = ' num2str(gamma)]);
 	disp(['OMEGA = ' num2str(omega)]);
     
-    if remove_miss
+    if remove_miss   % if removing nodes, switch to appropriate n
       if missing(person,:,:)
         n = oldN - numel(unique([missing(person,:,:),0])) + 1;
       end
@@ -57,13 +60,14 @@ if ~omega   % does static community detection on each slice separately
     Qconsall = zeros(t,1);
     Zall = zeros(t*p*(p-1)/2,1);
     Znewall = zeros(t*p*(p-1)/2,1);
-    for T=1:t  % loops over slices (fix this!!!!)
-        %figure out how to open A 
-        % should be a function of T and ts
+    for T=1:t  % loops over slices
+        r = floor((T-1)/TperR)+1;
+        i = mod(T-1,TperR)+1;
+        slicefile = [inpath 'ageNN' num2str(person) '_run' num2str(r) ...
+                     '-' num2str(i) '_tw' num2str(ts) '.txt'];
         
         % original nxn (potentially sparse) adjacency matrix for genlouvain
-        A = csvread(['/Users/kimberly/Desktop/choking_NNs/NN' num2str(person+100) ...
-            '_' num2str(nregs) scheme num2str(runnum) code '.txt']);
+        A = csvread(slicefile);
         if remove_miss
             A = remove_missings(A,squeeze(missing(person,runnum,:)));
         else
@@ -100,9 +104,11 @@ else
     % multislice!!! 
     A = cell(t,1);
     for T=1:t
-        runnum = T;
-        A{T} = csvread(['/Users/kimberly/Desktop/choking_NNs/NN' num2str(person+100) ...
-            '_' num2str(nregs) scheme num2str(runnum) code '.txt']);
+        r = floor((T-1)/TperR)+1;
+        i = mod(T-1,TperR)+1;
+        slicefile = [inpath 'ageNN' num2str(person) '_run' num2str(r) ...
+                     '-' num2str(i) '_tw' num2str(ts) '.txt'];
+        A{T} = csvread(slicefile);
         if remove_miss
             A{T} = remove_missings(A{T},squeeze(missing(person,runnum,:)));
         else
@@ -141,29 +147,29 @@ end  % end if-else switching between static and multislice
 
     if tosave
         % save orig. p partitions in '_Call'
-        dlmwrite(['/Users/kimberly/Google Drive/choking/' num2str(nregs) 'results/subj_' ...
-            num2str(person+100) '/run' num2str(runnum) '/' scheme '/CDr' num2str(gamma) num2str(omega) ...
-            '_' num2str(person+100) '_' num2str(nregs) scheme num2str(runnum) code '_Call.txt'],Call);
+        dlmwrite([outpath '/ageCD' num2str(gamma) num2str(omega) '_' ...
+                  num2str(person) '_run' num2str(r) '-' num2str(i) '_tw' ...
+                  num2str(ts) '_Call.txt'],Call);
         
         % save community consensus partitions in '_Cnewall'
-        dlmwrite(['/Users/kimberly/Google Drive/choking/' num2str(nregs) 'results/subj_' ...
-            num2str(person+100) '/run' num2str(runnum) '/' scheme '/CDr' num2str(gamma) num2str(omega) ...
-            '_' num2str(person+100) '_' num2str(nregs) scheme num2str(runnum) code '_Cnewall.txt'],Cnewall);
+        dlmwrite([outpath '/ageCD' num2str(gamma) num2str(omega) '_' ...
+                  num2str(person) '_run' num2str(r) '-' num2str(i) '_tw' ...
+                  num2str(ts) '_Cnewall.txt'],Cnewall);
         
         % save Qs and CC Qs in '_Qs'
-        dlmwrite(['/Users/kimberly/Google Drive/choking/' num2str(nregs) 'results/subj_' ...
-            num2str(person+100) '/run' num2str(runnum) '/' scheme '/CDr' num2str(gamma) num2str(omega) ...
-            '_' num2str(person+100) '_' num2str(nregs) scheme num2str(runnum) code '_Qs.txt'],[Qall,Qnewall]);
+        dlmwrite([outpath '/ageCD' num2str(gamma) num2str(omega) '_' ...
+                  num2str(person) '_run' num2str(r) '-' num2str(i) '_tw' ...
+                  num2str(ts) '_Qs.txt'],[Qall,Qnewall]);
         
         % save quality of community consensus in '_Qconsall'
-        dlmwrite(['/Users/kimberly/Google Drive/choking/' num2str(nregs) 'results/subj_' ...
-            num2str(person+100) '/run' num2str(runnum) '/' scheme '/CDr' num2str(gamma) num2str(omega) ...
-            '_' num2str(person+100) '_' num2str(nregs) scheme num2str(runnum) code '_Qconsall.txt'],Qconsall);
+        dlmwrite([outpath '/ageCD' num2str(gamma) num2str(omega) '_' ...
+                  num2str(person) '_run' num2str(r) '-' num2str(i) '_tw' ...
+                  num2str(ts) '_Qconsall.txt'],Qconsall);
         
         % save rand-Z dists and CC rand-Z dists in '_Zs'
-        dlmwrite(['/Users/kimberly/Google Drive/choking/' num2str(nregs) 'results/subj_' ...
-            num2str(person+100) '/run' num2str(runnum) '/' scheme '/CDr' num2str(gamma) num2str(omega) ...
-            '_' num2str(person+100) '_' num2str(nregs) scheme num2str(runnum) code '_Zs.txt'],[Zall,Znewall]);  
+        dlmwrite([outpath '/ageCD' num2str(gamma) num2str(omega) '_' ...
+                  num2str(person) '_run' num2str(r) '-' num2str(i) '_tw' ...
+                  num2str(ts) '_Zs.txt'],[Zall,Znewall]);  
     end
     
 end  % end loop over individuals
