@@ -1,4 +1,4 @@
-function [C,Q,C_hist,npasses] = genlouvainREPs(A,p,gamma,omega,max_passes)
+function [C,Q,C_hist,npasses] = genlouvainREPs_f(A,p,gamma,omega,max_passes)
 % this code does p community detection optimizations on adjacency matrix A
 % using generalized Louvain algorithm from netwiki package.
 % genlouvain returns S, an nx1 vector of assignments, and a 1x1 Q-value.
@@ -15,31 +15,20 @@ function [C,Q,C_hist,npasses] = genlouvainREPs(A,p,gamma,omega,max_passes)
 %          Q (px1 matrix of associated quality values)
 %          C_hist (pxNxTx(max_npasses) tensor of iterative C values)
 
-if nargin<5
+if nargin<5 % set default max_passes
     max_passes = 7;
 end
 
-if (nargin<4 || ~omega) && ~iscell(A)  % static community detection, A is nxn matrix
-    N = size(A,1); % number of nodes in the system
-    k = full(sum(A)); % vector of node degrees
-    twom = sum(k); % m = number of edges in system
-    B = full(A - gamma*(k'*k)/twom);% or define B as fcn handle to improve memory:
-    %B = @(v) A(:,v) - gamma*k'*k(v)/twom; % (see 'genlouvain.m' example)
-    C = zeros(p,N); % pxN matrix of assignments  
-    Q = zeros(p,1);
-    C_hist = zeros([size(C),max_passes]);
-    npasses = zeros(p,1);
-    for i=1:p  % performing p optimizations
-        disp(i);
-        [S,Q1,S_hist] = genlouvain_hist(B,10000,0);
-        C(i,:) = S';
-        Q(i) = Q1/twom;
-        npasses(i) = size(S_hist,2);
-        C_hist(i,:,1:npasses(i)) = shiftdim(S_hist,-1);
-    end
-    C_hist = C_hist(:,:,1:max(npasses));
+if nargin<4 % set default omega (static)
+    omega = 0;
+end
 
-else % multislice community detection, A is Tx1 array of NxN matrices
+if ~iscell(A) % A is an NxN matrix
+    A = {A};
+end
+
+
+% multislice community detection, A is Tx1 array of NxN matrices
     N=length(A{1});
     T=length(A);
     B=spalloc(N*T,N*T,(N+T)*N*T);
@@ -68,7 +57,5 @@ else % multislice community detection, A is Tx1 array of NxN matrices
         S_hist = reshape(S_hist,[N,T,size(S_hist,2)]);
         C_hist(i,:,:,1:npasses(i)) = shiftdim(S_hist,-1);
     end
-    C_hist = C_hist(:,:,:,1:npasses(i));
-end
-
+    C_hist = C_hist(:,:,:,1:max(npasses));
 end

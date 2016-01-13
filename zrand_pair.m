@@ -28,6 +28,11 @@ a=full(sum(sum(nij.^2-nij)))/2; %same in both
 b=M1-a;                         %same in 1, diff in 2
 c=M2-a;                         %same in 2, diff in 1
 d=M-(a+b+c);                    %diff in both
+if a==M || a==0
+    disp('warning: override with NaN');
+    zRand = NaN;
+    return
+end
 
 %Rand and Adjusted Rand indices:
 SR=(a+d)/(a+b+c+d);

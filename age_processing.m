@@ -30,4 +30,4 @@ for k=1:nsubjs  % loop over subject files
     age_timeseries(k).ID = files{k}(end-8:end-4);
 end
 
-save([outpath 'age_timeseries.mat'],'age_timeseries');
+save([outpath 'age_timeseries1.mat'],'age_timeseries');

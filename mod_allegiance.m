@@ -9,21 +9,24 @@ function [P,thresh_val] = mod_allegiance(C,toThresh)
 %          thresh_val, the scalar value below which P was thresholded
 %                (if toThresh==0, thresh_val = min value of P)
 
+if nargin<2
+    toThresh = 0;
+end
+
 [p,n] = size(C);
 
 P = zeros(n);
 if toThresh
     Prand = zeros(n);
+   
+    % create random partitions for significance threshold
+    Crand = zeros(size(C));
+    for i=1:p
+        pr = randperm(n);      % create random partitions
+        Crand(i,:) = C(i,pr);  % Crand, p random assignments of n nodes
+    end
+
 end
-    
-% create random partitions for significance threshold
-Crand = zeros(size(C));
-for i=1:p
-    pr = randperm(n);      % create random partitions
-    Crand(i,:) = C(i,pr);  % Crand, p random assignments of n nodes
-end
-%figure;h=pcolor(C);set(h,'EdgeColor','none');
-%figure;h=pcolor(Crand);set(h,'EdgeColor','none');
 
 % create nxn count of partitions in which nodepairs are in the same module
     for ii = 1:n          
@@ -45,7 +48,7 @@ P = P + triu(P,1)';
 
 % threshold, if desired
 if toThresh
-    thresh_val = max(max(Prand));
+    thresh_val = max(max(triu(Prand,1)));
     P(P<=thresh_val) = 0;
 else
     thresh_val = min(min(P));

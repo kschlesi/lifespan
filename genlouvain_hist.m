@@ -1,4 +1,4 @@
-function [S,Q,S_hist] = genlouvain(B,limit,verbose,randord)
+function [S,Q,S_hist] = genlouvain_hist(B,limit,verbose,randord)
 %GENLOUVAIN  Louvain-like community detection, specified quality function.
 %   Version 1.2 (July 2012)
 %
@@ -269,9 +269,7 @@ while ~isequal(Sb,S2) %loop around each "pass" (in language of Blondel et al) wi
     yb = [];
     
     G=sparse(1:length(y),y,1);
-    disp(size(y));disp(y);
-    disp(size(G'));
-    figure;bcolor(G');
+    
     dstep=1;
     
     % P = G';
@@ -305,9 +303,7 @@ while ~isequal(Sb,S2) %loop around each "pass" (in language of Blondel et al) wi
             end
         end
         
-        P=sparse(y,1:length(y),1);
-        disp(size(P));
-        figure;bcolor(P);title('P');
+        % P=sparse(y,1:length(y),1);
         % Q = sum(sum((P*M).*(P)));
         
     end

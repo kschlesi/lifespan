@@ -1,1 +1,7 @@
 *.mat
+*.csv
+*.xls*
+*.dset
+license.txt
+CD/*
+NNs/*
