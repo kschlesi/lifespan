@@ -1,5 +1,5 @@
 %%%% GenLouvain! for community detection on age data
-function output = age_communities(k,inpath,outpath,p,t,ts,run_ts,...
+function output = age_communities_norm(k,inpath,outpath,p,t,ts,run_ts,...
             tosave,remove_miss,goRange,missing,tag,norm)
 
 %%%%%%%%%%%%%%%%%%%%%%%%% MODIFY THIS PART %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -91,7 +91,10 @@ if ~omega   % does static community detection on each slice separately
             n = length(A);
         else
             A(isnan(A)) = 0;
-        end     
+        end
+        
+        % normalize A s.t. sum(sum(A)) = norm
+        A = A.*(norm/sum(sum(A)));        
         
         % does p optimizations of genlouvain optimization on A with value gamma
         [C,Q] = genlouvainREPs(A,p,gamma);
@@ -140,6 +143,8 @@ else
         else
             A{T}(isnan(A{T})) = 0;
         end
+        % normalize A{T} s.t. sum(sum(A{T})) = norm
+        A{T} = A{T}.*(norm/sum(sum(A{T})));        
     end
     [Cmult,Qall] = genlouvainREPs(A,p,gamma,omega); % output is pxnxt
     [~,zdist] = zrand(reshape(Cmult,p,n*t));
@@ -180,23 +185,23 @@ end  % end if-else switching between static and multislice
     if tosave
         % save orig. p partitions in '_Call'
         dlmwrite([outpath 'ageCD' num2str(gamma) num2str(omega) '_' ...
-                  num2str(person) '_tw' num2str(ts) tag '_Call.txt'],Call);
+                  num2str(person) '_tw' num2str(ts) tag '_norm_Call.txt'],Call);
         
         % save community consensus partitions in '_Cnewall'
         dlmwrite([outpath 'ageCD' num2str(gamma) num2str(omega) '_' ...
-                  num2str(person) '_tw' num2str(ts) tag '_Cnewall.txt'],Cnewall);
+                  num2str(person) '_tw' num2str(ts) tag '_norm_Cnewall.txt'],Cnewall);
         
         % save Qs and CC Qs in '_Qs'
         dlmwrite([outpath 'ageCD' num2str(gamma) num2str(omega) '_' ...
-                  num2str(person) '_tw' num2str(ts) tag '_Qs.txt'],[Qall,Qnewall]);
+                  num2str(person) '_tw' num2str(ts) tag '_norm_Qs.txt'],[Qall,Qnewall]);
         
         % save quality of community consensus in '_Qconsall'
         dlmwrite([outpath 'ageCD' num2str(gamma) num2str(omega) '_' ...
-                  num2str(person) '_tw' num2str(ts) tag '_Qconsall.txt'],Qconsall);
+                  num2str(person) '_tw' num2str(ts) tag '_norm_Qconsall.txt'],Qconsall);
         
         % save rand-Z dists and CC rand-Z dists in '_Zs'
         dlmwrite([outpath 'ageCD' num2str(gamma) num2str(omega) '_' ...
-                  num2str(person) '_tw' num2str(ts) tag '_Zs.txt'],[Zall,Znewall]);  
+                  num2str(person) '_tw' num2str(ts) tag '_norm_Zs.txt'],[Zall,Znewall]);  
     end
     
 % end  % end loop over individuals

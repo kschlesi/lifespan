@@ -48,6 +48,12 @@ subj_IDs = cell(length(age_timeseries),1);
 for k=1:length(age_timeseries)
     subj_IDs{k} = age_timeseries(k).ID;
 end
+totalBOLD = zeros(size(age_timeseries));
+for k=1:length(age_timeseries)
+    totalBOLD(k) = sum(sum(age_timeseries(k).run1))./size(age_timeseries(k).run1,1) + ...
+                    sum(sum(age_timeseries(k).run2))./size(age_timeseries(k).run2,1) + ...
+                    sum(sum(age_timeseries(k).run3))./size(age_timeseries(k).run3,1) ;
+end
 clear age_timeseries;
 
 % load file paths
@@ -1613,7 +1619,20 @@ for k=s_plot
               total_conn(ii) = total_conn(ii) + sum(sum(adjs{T}));
           end
       end
-      correlate(sAges(ib),total_conn); % they are correlated
+      correlate(sAges(ib),total_conn,'type','Spearman'); % they are correlated
+      xlabel('age'); ylabel('total summed connectivity, all timesteps');
       
-      correlate(sAges(ib),mean(flexS),'partial',total_conn);
+      correlate(total_conn,mean(flexS));
+      xlabel('total connectivity'); ylabel('flexibility');
+      
+      correlate(total_conn,ncommS(end,:),'type','Spearman');
+      xlabel('total connectivity'); ylabel('number of communities');
+      
+      correlate(sAges(ib),mean(flexS),'partial',total_conn,'type','Spearman');
+      xlabel('age'); ylabel('flexibility'); 
+      title('total connectivity partialed out');
+      
+      correlate(sAges(ib),ncommS(end,:),'partial',total_conn,'type','Spearman');
+      xlabel('age'); ylabel('number of communities'); 
+      title('total connectivity partialed out');
 end
