@@ -10,7 +10,7 @@ inpath = '/Users/kimberly/Documents/lifespan/';
 %     goRange = [1.15,0.001]; ts = 316; stats_tag = '316alt1';
 %     goRange = [1   ,0.005]; ts = 316; stats_tag = '316alt2';
 %     goRange = [1   ,0.001]; ts = 316; stats_tag = '316alt3';
-goRange = [1.2, 0.05]; ts = 52; stats_tag = '52';
+goRange = [1.2, 0.05]; ts = 52; stats_tag = '52_flexT';%stats_tag = '52_ncommO';
 s_plot = 0;%,7,9];                   % list of subjects to plot (out of all subjs with both CD and behavior)
 c_plot = {'Fronto-parietal'};          % list of classes to plot (when necessary)
 p_plot = {};
@@ -28,6 +28,7 @@ inc_leg = 0;            % should a legend of all subjs be included?
 remove_vis = 0;         % should tagged nodes be removed?
 rm_tag = '_nv';         % sets tag for removing nodes (visual tag = '_nv')
 reg_motion = 1;         % check correlations with motion partialled out?
+extra_tag = [];%'_norm2';%'_norm1';   % if density normalization is used in CD
 
 null_test = 0;
 nullp = 100;
@@ -104,12 +105,15 @@ for i=1:length(subj_IDs)
 end
 
 % load community detection results
-[t,n,ib,Cplot,Cplotall,~,~,Ncvg] = load_CD_results(totalsubjs, missing_subjs,...
-                      nruns, ts, ts_run, goRange, tag, CDinpath);
+[t,n,ib,Cplot,Cplotall,~,Qvg,Ncvg] = load_CD_results(totalsubjs, missing_subjs,...
+                      nruns, ts, ts_run, goRange, [tag extra_tag], CDinpath);
 goix = 1;
 p = size(Cplotall,2)/numel(ib);
-TperR = floor(ts_run/ts);
+TperR = floor(ts_run/ts); % ib for 
 %ib = removeval(ib,[find(isnan(sDPrime)),find(isnan(sCSwitch))]);
+%ib = ib([1:51,53:82,84:end]); % ib for leaving out behavioral outliers
+%ib = ib([1:27,29:34,36:end]); % ib for leaving out singleton outliers
+%ib = ib([1:34,36:91,93:end]); % ib for leaving out ncomm outliers
 nsubs = length(ib);
 toUse = zeros(totalsubjs,1); toUse(ib) = 1; 
 toUse(isnan(sDPrime)) = 0; toUse(isnan(sCSwitch)) = 0;
@@ -117,6 +121,16 @@ toUse1 = ones(nsubs,1); toUse1(isnan(sDPrime(ib))) = 0; toUse1(isnan(sCSwitch(ib
 
 % load adjacency matrices
 A = load_adjs(t,ib,subj_IDs,ts,ts_run,NNinpath);
+total_conn = zeros(numel(ib),1);
+      for ii=1:numel(ib)
+          adjs = A(ii).adj;
+          total_conn(ii) = 0;
+          for T=1:size(adjs,1)
+              total_conn(ii) = total_conn(ii) + sum(sum(adjs{T}));
+          end
+      end
+norm = total_conn./t;
+%save(['tot_conn_' num2str(t) '.mat'],'norm');
 %pplot = ib(kplot);
 
 % compute partitions, flexibilities, ncomms
@@ -124,25 +138,41 @@ partnS = zeros(n,t,numel(ib)); % find final partitions
 sureS = zeros(n,t,numel(ib),2);  % sureties (CHANGE THIS DUMB MEASURE)
 flexS = zeros(n,numel(ib));   % compute flexibilities
 ncommS = zeros(t+1,numel(ib));  % number of communities in each slice & overall
+ncomm1 = zeros(t+1,numel(ib));  % number of communities in each slice & overall
+commsizeS = zeros(n,t+1,numel(ib)); % comm size per node, each slice and overall
+commsizeD = zeros(n,t,numel(ib)); % comm size per node, each slice and overall
 RflexS = zeros(n,nruns,nsubs);
 RncommS = zeros(nruns+1,nsubs);
 for k=1:numel(ib)
     origs = squeeze(Cplotall(goix,p*(k-1)+1:p*k,:,:));
     origsO = squeeze(Cplot(goix,p*(k-1)+1:p*k,:,:));
     partnS(:,:,k) = squeeze(mode(origs,1));
-    flexS(:,k) = flexibility(partnS(:,:,k)',1);
+    flexS(:,k) = flexibility(partnS(:,:,k)',1); % categorical
+    flexT(:,k) = flexibility(partnS(:,:,k)');   % not categorical
     for T=1:t
         ncommS(T,k) = numel(removeval(unique(partnS(:,T,k)),0));
+        sings = numel(find(hist(partnS(:,T,k),1:1:max(max(partnS(:,:,k))))==1));
+        ncomm1(T,k) = ncommS(T,k) - sings;
         %sureS(:,T,k,1) = sureties(origsO(:,:,T),partnS(:,T,k));
         %sureS(:,T,k,2) = sureties(origs(:,:,T),partnS(:,T,k));
+        for c = 1:1:max(max(partnS(:,:,k)))
+            commsizeS(partnS(:,T,k)==c,T,k) = numel(find(partnS(:,T,k)==c));
+            commsizeD(partnS(:,T,k)==c,T,k) = numel(find(partnS(:,:,k)==c));
+        end
     end
     for run=1:nruns
         RflexS(:,run,k) = flexibility(partnS(:,TperR*(run-1)+1:TperR*run,k)',1);
         RncommS(run,k) = numel(removeval(unique(partnS(:,TperR*(run-1)+1:TperR*run,k)),0));
     end
     ncommS(end,k) = max(max(partnS(:,:,k)));
+    alls = partnS(:,:,k);
+    sings = numel(find(hist(alls(:),1:1:ncommS(end,k))==1));
+    if ~~sings; disp([k,sings]); end;
+    ncomm1(end,k) = ncommS(end,k) - sings;
     RncommS(end,k) = ncommS(end,k);
+    commsizeS(:,t+1,k) = mean(commsizeD(:,:,k),2);
 end
+
 
 % generate random null distribution of partitions
 if null_test
@@ -302,14 +332,25 @@ end
 
 % compute number of communities in each class
 cncommS = zeros(nC,nsubs,t+1);
+cncomm1 = zeros(nC,nsubs,t+1);
 for c=1:nC
   for k1=1:nsubs
+    partn1 = zeros(n,t);
     for T=1:t
       ncms = numel(removeval(unique(partnS(~~(nodeix.*(regCN==c)),T,k1)),0));
       cncommS(c,k1,T) = ncms;
+      for j=1:max(max(ncommS))
+          if sum(partnS(:,T,k1)==j)>1
+              partn1(partnS(:,T,k1)==j,T) = j;
+          end
+      end
+      ncms1 = numel(removeval(unique(partn1(~~(nodeix.*(regCN==c)),T)),0));
+      cncomm1(c,k1,T) = ncms1;
     end
     ncall = numel(removeval(unique(partnS(~~(nodeix.*(regCN==c)),:,k1)),0));
     cncommS(c,k1,t+1) = ncall;
+    ncall1 = numel(removeval(unique(partn1(~~(nodeix.*(regCN==c)),:)),0));
+    cncomm1(c,k1,t+1) = ncall1;
   end
 end
 
@@ -1610,7 +1651,8 @@ for k=s_plot
           dlmwrite(filenameDP,rpsDPAll);
           dlmwrite(filenameCS,rpsCSAll);
       end
-      
+    
+    if new_analysis  
       total_conn = zeros(numel(ib),1);
       for ii=1:numel(ib)
           adjs = A(ii).adj;
@@ -1619,20 +1661,121 @@ for k=s_plot
               total_conn(ii) = total_conn(ii) + sum(sum(adjs{T}));
           end
       end
+      norm = total_conn./t;
+      %save(['tot_conn_' num2str(t) '.mat'],'norm');
       correlate(sAges(ib),total_conn,'type','Spearman'); % they are correlated
       xlabel('age'); ylabel('total summed connectivity, all timesteps');
       
-      correlate(total_conn,mean(flexS));
+      correlate(total_conn,mean(flexS),'type','Spearman');
       xlabel('total connectivity'); ylabel('flexibility');
       
       correlate(total_conn,ncommS(end,:),'type','Spearman');
       xlabel('total connectivity'); ylabel('number of communities');
       
-      correlate(sAges(ib),mean(flexS),'partial',total_conn,'type','Spearman');
+      correlate(sAges(ib),mean(flexS),'partial',total_conn,'type','Spearman','DispResiduals','raw');
       xlabel('age'); ylabel('flexibility'); 
       title('total connectivity partialed out');
       
-      correlate(sAges(ib),ncommS(end,:),'partial',total_conn,'type','Spearman');
+      correlate(sAges(ib),ncommS(end,:),'partial',total_conn,'type','Spearman','DispResiduals','raw');
       xlabel('age'); ylabel('number of communities'); 
       title('total connectivity partialed out');
+      
+      correlate(ncommS(end,:),mean(flexS))
+      correlate(sAges(ib),mean(flexS),'type','Spearman','partial',ncommS(end,:));
+      
+      % we shuffle all partitions, keeping total community size and number
+      % but destroying all else... 
+      % now we ask, how much do community size and number control flex?
+      aa=squeeze(mean(flexRand,1));
+      pvals_randflex = zeros(size(aa,1),1);
+      pvals_allflex = zeros(size(aa,1),1);
+      for i=1:104; 
+          pvals_randflex(i)=numel(find(mean(flexS(:,i))>aa(i,:)))/size(aa,2); 
+          pvals_allflex(i)=numel(find(mean(flexS(:,i))>aa))/numel(aa); 
+      end
+      outliers = find(pvals_allflex>0);
+      nonols = removeval(1:size(aa,1),outliers);
+      figure;
+        correlate(mean(flexS(:,nonols)),ncommS(end,nonols),'type','Spearman','ExtFigureCmd');
+        hold on;
+        correlate(mean(flexS(:,outliers)),ncommS(end,outliers),'type','Spearman','ExtFigureCmd');
+        hold off;
+      correlate(ncommS(end,:),mean(aa,2),'type','Spearman');
+
+      % one subject:
+      subj1 = 1;
+      hist(aa(subj1,:)); 
+      axis([0.8 0.9 0 1]);
+      
+      corrRs = zeros(nullp,1);
+      corrPs = zeros(nullp,1);
+      for i=1:nullp
+      [corrRs(i),corrPs(i)] = correlate(sAges(ib),aa(:,i),'NoFigure');
+      end
+      
+      
+      for kk=1:10
+        origs = squeeze(Cplotall(goix,p*(kk-1)+1:p*kk,:,:));
+        origsO = squeeze(Cplot(goix,p*(kk-1)+1:p*kk,:,:));
+        C = zeros(t*p,n);
+        Call =zeros(t*p,n);
+        for TT=1:t
+            C((TT-1)*p+1:TT*p,:) = origsO(:,:,TT);
+            Call((TT-1)*p+1:TT*p,:) = origs(:,:,TT);
+        end
+        
+        figure; bcolor(C);
+        figure; bcolor(Call);
+      end
+    end % end new_analysis block
+      
+      
 end
+
+%% overall multiple regression (on flexibility)
+
+% flexS = n x nsubs
+% sAges(ib) = nsubs x 1
+modeltype = 'linear'; %modeltype = 'interaction';
+
+[aa,bb,cc] = svd(flexS');
+%stats = regstats(sAges(ib),flexS');
+vals = diag(bb).^2;
+pcts = vals./sum(vals);
+cutoff = find(cumsum(pcts)>0.95,1,'first')-1;
+%flexR = aa*bb;
+aa(:,1:cutoff)*bb(1:cutoff,1:cutoff)*cc(:,1:cutoff)';
+
+flexR = aa(:,1:cutoff)*bb(1:cutoff,1:cutoff);
+stats = regstats(sAges(ib),flexR);  % rsquare = 0.64
+
+clStats = regstats(sAges(ib),clFlex');
+
+%% singletons: same over ages? same over time slices? subj outliers = 28,35
+figure; bcolor(ncommS - ncomm1);
+colorbar;
+isSingleton = (commsizeS(:,1:t,:)==1);
+figure; bcolor(squeeze(sum(isSingleton,2))); colorbar;
+figure; plot(squeeze(sum(sum(isSingleton,1),2)),'o');
+figure; plot(squeeze(sum(sum(isSingleton,3),2)),'or'); % max: region 158 L precuneus 2/5
+figure; plot(squeeze(sum(sum(isSingleton(:,:,[1:27,28:34,36:end]),3),2)),'or');
+
+% dynamic sizes (mean over slices)
+figure; bcolor(squeeze(commsizeS(:,end,:))); colorbar;
+
+% static sizes (mean over slices)
+figure; bcolor(squeeze(mean(commsizeS(:,1:t,:),2))); colorbar;
+
+
+%% new flex definition
+
+figure; bcolor(flexS); colorbar; 
+figure; bcolor(flexT); colorbar;
+
+correlate(flexS(:),flexT(:),'type','Spearman');
+
+correlate(mean(flexS),mean(flexT),'type','Spearman');
+
+correlate(mean(flexS,2),mean(flexT,2),'type','Spearman');
+
+%% think about the null models....

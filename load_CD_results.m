@@ -1,8 +1,14 @@
 function [t,n,ib,Cplot,Cplotall,Zvg,Qvg,Ncvg] = ...
                 load_CD_results(subjects,missing_subjs,nruns,...
-                                     ts,run_ts,goRange,tag,filepath)
+                                     ts,run_ts,goRange,tag,filepath,subsubs)
     
 ib = loadib(subjects,missing_subjs);
+if ~numel(ib)
+    ib = 1:subjects;
+end
+if nargin>8
+    ib = ib(subsubs);
+end
 [pbyt,n] = size(csvread([filepath 'ageCD' num2str(goRange(1,1)) num2str(goRange(1,2)) '_' ...
                   num2str(ib(1)) '_tw' num2str(ts) tag '_Call.txt']));
 % preallocate space for results
@@ -10,6 +16,9 @@ krange = 1:numel(ib); % index over people
 t = floor(run_ts/ts)*nruns;
 p = pbyt/t;
 assert(mod(p,1)==0,'t and p values are not compatible');
+if nargout<=3
+    return
+end
 g = size(goRange,1);
 Zvg = zeros(g,numel(ib),4,1);  % Z, Zall
 Qvg = zeros(g,numel(ib),5,1);  % Q, Qall, Qconsall
